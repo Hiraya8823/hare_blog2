@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::resource('posts', PostController::class)
-    ->only(['create', 'storre', 'edit', 'update', 'destroy'])
+    ->only(['create', 'store', 'edit', 'update', 'destroy'])
     ->middleware('auth');
 
 Route::resource('posts', PostController::class)
