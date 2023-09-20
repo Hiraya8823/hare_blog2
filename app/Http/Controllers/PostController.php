@@ -56,7 +56,7 @@ class PostController extends Controller
             DB::rollback();
             return back()->withInput()->withErrors($e->getMessage());
         }
-        
+
         return redirect()
             ->route('posts.show', $post)
             ->with('notice', '記事を登録しました');
@@ -77,7 +77,9 @@ class PostController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $post = Post::find($id);
+
+        return view('posts.edit', compact('post'));
     }
 
     /**
@@ -85,7 +87,51 @@ class PostController extends Controller
      */
     public function update(UpdatePostRequest $request, string $id)
     {
-        //
+        $post = Post::find($id);
+
+        if ($request->user()->cannot('update', $post)) {
+            return redirect()->route('posts.show', $post)
+                ->withErrors('自分の記事以外は更新できません');
+        }
+
+        $file = $request->file('image');
+        if ($file) {
+            $delete_file_path = 'images/posts/' . $post->image;
+            $post->image = date('YmdHis') . '_' . $file->getClientOriginalName();
+        }
+        $post->fill($request->all());
+
+        // toranzakusyonkaisi
+        DB::beginTransaction();
+        try {
+
+            $post->save();
+
+            if ($file) {
+                // gazou
+                if (!Storage::putFileAs('images/posts', $file, $post->image)) {
+                    // ro-rubakku
+                    throw new \Exception('画像ファイルの保存に失敗しました');
+                }
+
+                // gazousakujo
+                if (!Storage::delete($delete_file_path)) {
+                    // gazousakujo
+                    Storage::delete('images/posts/' . $post->image);
+                    // reigai
+                    throw new \Exception('画像のファイルの削除に失敗しました。');
+                }
+            }
+
+            // toranzakusyon
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollback();
+            return back()->withInput()->withErrors($e->getMessage());
+        }
+
+        return redirect()->route('posts.show', $post)
+            ->with('notice', '記事を更新しました。');
     }
 
     /**
