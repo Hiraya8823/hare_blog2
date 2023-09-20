@@ -17,7 +17,9 @@ class PostController extends Controller
      */
     public function index()
     {
-        return view('posts.index');
+        $posts = Post::with('user')->latest()->paginate(4);
+
+        return view('posts.index', compact('posts'));
     }
 
     /**
@@ -96,7 +98,7 @@ class PostController extends Controller
 
         $file = $request->file('image');
         if ($file) {
-            $delete_file_path = 'images/posts/' . $post->image;
+            $delete_file_path = $post->image_path;
             $post->image = self::createFileName($file);
         }
         $post->fill($request->all());
@@ -117,7 +119,7 @@ class PostController extends Controller
                 // gazousakujo
                 if (!Storage::delete($delete_file_path)) {
                     // gazousakujo
-                    Storage::delete('images/posts/' . $post->image);
+                    Storage::delete($post->image_path);
                     // reigai
                     throw new \Exception('画像のファイルの削除に失敗しました。');
                 }
@@ -139,7 +141,27 @@ class PostController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $post = Post::find($id);
+
+        // torannzakusyon
+        try {
+            $post->delete();
+
+            // gazou
+            if (!Storage::delete($post->image_path)) {
+                throw new \Exception('画像ファイルの削除に失敗しました。');
+            }
+
+            // toranzakkusyon  syuuryou
+            DB::commit();
+        } catch (\Exception $e) {
+            // sippai
+            DB::rollBack();
+            return back()->withErrors($e->getMessage());
+        }
+
+        return redirect()->route('posts.index')
+            ->with('notice', '記事を削除しました');
     }
 
     private static function createFileName($file)
